@@ -2,11 +2,8 @@ import cv2
 from keras.models import model_from_json
 import numpy as np
 from twilio.rest import Client
-import random
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut
-import warnings
-
+import geocoder
+import requests
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
@@ -28,52 +25,45 @@ class AccidentDetectionModel:
         except Exception as e:
             raise RuntimeError(f"Error predicting accident: {e}")
 
-def generate_location():
-    latitude_ranges = [(8.4, 15.0), (20.0, 25.0), (30.0, 37.6)]
-    longitude_ranges = [(68.7, 75.0), (80.0, 85.0), (90.0, 97.25)]
+def get_location():
+    try:
+        # Get your IP address
+        ip_address = requests.get('https://api.ipify.org').text
+        
+        # Geocode the IP address
+        location = geocoder.ip(ip_address)
+        
+        return location.latlng[0], location.latlng[1]
+    except Exception as e:
+        print(f"Error getting location: {e}")
+        return None
 
-    max_attempts = 5
-
-    for _ in range(max_attempts):
-        try:
-            geolocator = Nominatim(user_agent="accident_detection_app")
-
-            latitude_range = random.choice(latitude_ranges)
-            longitude_range = random.choice(longitude_ranges)
-
-            latitude = round(random.uniform(*latitude_range), 6)
-            longitude = round(random.uniform(*longitude_range), 6)
-
-            print(f"Random Location: Latitude {latitude}, Longitude {longitude}")
-
-            location = geolocator.reverse((latitude, longitude), language='en', timeout=10)
-
-            if location and 'address' in location.raw:
-                place_name = location.address
-                print(f"Place Name: {place_name}")
-
-                return latitude, longitude, place_name
-
-        except (AttributeError, GeocoderTimedOut) as e:
-            print(f"Error generating random location: {e}")
-
-    print("Error: Unable to determine the accident location after multiple attempts.")
-    return None, None, None
+def get_address(latitude, longitude):
+    try:
+        location = geocoder.osm([latitude, longitude], method='reverse')
+        return location.address
+    except Exception as e:
+        print(f"Error getting address: {e}")
+        return None
 
 def send_sms_twilio():
-    account_sid = 'your_account_sid'
-    auth_token = 'your_authentication_token'
+    try:
+        # Twilio credentials
+        account_sid = 'your_account_sid'
+        auth_token = 'your_auth_token'
+        from_number = 'your_twilio_number'
+        to_number = 'your_number'
 
-    from_number = 'your_twilio_number'
-    to_number = 'your_number'  #note number registered in twilio free trial only valid, if you want to add a number go  to twilio dashboard
+        client = Client(account_sid, auth_token)
 
-    client = Client(account_sid, auth_token)
+        # Get location
+        latitude, longitude = get_location()
+        address = get_address(latitude, longitude)
 
-    accident_latitude, accident_longitude, place_name = generate_location()
+        # Message body
+        message_body = f"ACCIDENT DETECTED at {address} (Latitude: {latitude}, Longitude: {longitude}) please hurry up to this place"
 
-    if accident_latitude is not None and accident_longitude is not None and place_name is not None:
-        message_body = f"ACCIDENT DETECTED\nLocation: {place_name}, Latitude {accident_latitude}, Longitude {accident_longitude}"
-
+        # Send SMS
         message = client.messages.create(
             body=message_body,
             from_=from_number,
@@ -81,22 +71,17 @@ def send_sms_twilio():
         )
 
         print(f"SMS sent: {message.sid}")
-        return place_name, accident_latitude, accident_longitude
 
-    else:
-        print("Error: Unable to determine the accident location.")
-        return None, None, None
-
+    except Exception as e:
+        print(f"Error sending SMS: {e}")
 
 def start_application():
     sms_sent = False  
-    video = None  
-    location_info = None
     try:
         model = AccidentDetectionModel("model.json", 'model_weights.h5')
         font = cv2.FONT_HERSHEY_SIMPLEX
 
-        video_path = 'C:\\Users\\LENIN\\Downloads\\Accident Detection and alerting System\\head_on_collision_101.mp4'
+        video_path = "E:\\Downloads\\Accident-Detection-System-main\\Accident-Detection-System-main\\head_on_collision_101 (1).mp4"
         video = cv2.VideoCapture(video_path)
 
         if not video.isOpened():
@@ -121,10 +106,8 @@ def start_application():
                 cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
                 cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), font, 1, (255, 0, 0), 2)  
 
-
-                location_info = send_sms_twilio()
-                if location_info is not None:
-                    sms_sent = True  
+                send_sms_twilio()  
+                sms_sent = True  
 
             cv2.imshow('Video', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
 
@@ -135,14 +118,10 @@ def start_application():
         print(f"An error occurred: {e}")
 
     finally:
-        if video is not None:
-            video.release()
+        video.release()
         cv2.destroyAllWindows()
 
-    if location_info is not None:
-        place_name, accident_latitude, accident_longitude = location_info
-        print(f"Accident detected near {place_name}, Latitude: {accident_latitude}, Longitude: {accident_longitude}.")
-    else:
-        print("No accident detected.")
 if __name__ == '__main__':
     start_application()
+
+
