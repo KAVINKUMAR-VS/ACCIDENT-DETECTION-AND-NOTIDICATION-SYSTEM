@@ -6,14 +6,15 @@ from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatte
 from twilio.rest import Client
 import geocoder
 import os
-import base64
-import tempfile
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
 
     def __init__(self, model_json_file, model_weights_file):
         try:
+            if not os.path.exists(model_json_file) or not os.path.exists(model_weights_file):
+                raise FileNotFoundError(f"Model files not found: {model_json_file}, {model_weights_file}")
+
             # Define the model architecture using the functional API
             input_layer = Input(shape=(250, 250, 3), name='input_layer')
             
@@ -41,6 +42,8 @@ class AccidentDetectionModel:
             
             # Load model weights
             self.loaded_model.load_weights(model_weights_file)
+        except FileNotFoundError as e:
+            raise RuntimeError(f"Model files not found: {e}")
         except Exception as e:
             raise RuntimeError(f"Error loading model: {e}")
 
@@ -50,36 +53,6 @@ class AccidentDetectionModel:
             return AccidentDetectionModel.class_nums[np.argmax(self.preds)], self.preds
         except Exception as e:
             raise RuntimeError(f"Error predicting accident: {e}")
-
-def annotate_video(input_path, output_path, model):
-    cap = cv2.VideoCapture(input_path)
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, 20.0, (640, 480))
-
-    highest_probability = 0.0
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        roi = cv2.resize(gray_frame, (250, 250))
-
-        pred, prob = model.predict_accident(roi[np.newaxis, :, :])
-        prob_percentage = round(prob[0][0] * 100, 2)
-
-        if pred == "Accident" and prob_percentage > highest_probability:
-            highest_probability = prob_percentage
-            text = f"Accident: {highest_probability}%"
-        else:
-            text = f"No Accident: {prob_percentage}%"
-
-        cv2.putText(frame, text, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        out.write(frame)
-
-    cap.release()
-    out.release()
 
 def get_location():
     try:
@@ -129,24 +102,44 @@ def main():
     if uploaded_file is not None:
         st.video(uploaded_file)
 
-        # Save the uploaded file as a temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.write(uploaded_file.read())
+        # Read the uploaded file using OpenCV
+        video_array = np.frombuffer(uploaded_file.read(), np.uint8)
+        video_path = "uploaded_video.mp4"
+        with open(video_path, 'wb') as f:
+            f.write(video_array)
 
-        # Annotate the video with the highest probability
-        output_path = os.path.join(tempfile.gettempdir(), "annotated_video.mp4")
         model = AccidentDetectionModel("model.json", "model_weights.h5")
-        annotate_video(temp_file.name, output_path, model)
 
-        # Display the annotated video in a new tab
-        st.markdown(f'<a href="{output_path}" target="_blank">Download Annotated Video</a>', unsafe_allow_html=True)
+        # Initialize SMS sent flag
+        sms_sent = False
+        
+        frame_count = 0
 
-        highest_probability = model.preds[:, 0].max() * 100
-        if highest_probability > 50:  # Set your desired threshold
-            send_sms_twilio()
+        while True:
+            video = cv2.VideoCapture(video_path)
+            ret, frame = video.read()
+            if not ret:
+                break
 
-        # Close the temporary file
-        temp_file.close()
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            roi = cv2.resize(gray_frame, (250, 250))
+
+            pred, prob = model.predict_accident(roi[np.newaxis, :, :])
+            prob_percentage = round(prob[0][0] * 100, 2)
+
+            # Display probability on the video frame
+            if 93 <= prob_percentage <= 100:
+                st.image(gray_frame, caption=f"Frame {frame_count}: Prediction: {pred} - Probability: {prob_percentage}%", use_column_width=True)
+
+            if pred == "Accident" and not sms_sent:
+                send_sms_twilio()
+                sms_sent = True
+                st.warning(f"Accident detected with {prob_percentage}% probability!")
+
+            frame_count += 1
+
+        # Release video capture
+        video.release()
 
 if __name__ == "__main__":
     main()
