@@ -106,15 +106,8 @@ def main():
 
         # Initialize SMS sent flag
         sms_sent = False
-
-        # Define the directory to save annotated images
-        os.makedirs("annotated_frames", exist_ok=True)
         
         frame_count = 0
-
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        annotated_video_path = "annotated_video.mp4"
-        annotated_video = cv2.VideoWriter(annotated_video_path, fourcc, 25.0, (640, 480))
 
         while True:
             ret, frame = video.read()
@@ -127,16 +120,8 @@ def main():
             pred, prob = model.predict_accident(roi[np.newaxis, :, :])
             prob_percentage = round(prob[0][0] * 100, 2)
 
-            # Annotate probability on the video frame
-            cv2.putText(frame, f"Prediction: {pred} - Probability: {prob_percentage}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
-
-            # Save annotated frame as an image
-            annotated_frame_path = f"annotated_frames/frame_{frame_count}.jpg"
-            cv2.imwrite(annotated_frame_path, frame)
-
-            # Write frame to annotated video
-            annotated_frame = cv2.imread(annotated_frame_path)
-            annotated_video.write(annotated_frame)
+            # Display probability on the video frame
+            st.write(f"Frame {frame_count}: Prediction: {pred} - Probability: {prob_percentage}%")
 
             if pred == "Accident" and not sms_sent:
                 send_sms_twilio()
@@ -145,21 +130,8 @@ def main():
 
             frame_count += 1
 
-        # Release everything if job is finished
+        # Release video capture
         video.release()
-        annotated_video.release()
-        cv2.destroyAllWindows()
-
-        # Generate download link for annotated video
-        with open(annotated_video_path, "rb") as video_file:
-            video_bytes = video_file.read()
-            st.markdown(f"Download annotated video: [annotated_video.mp4](data:video/mp4;base64,{base64.b64encode(video_bytes).decode()})", unsafe_allow_html=True)
-
-        # Remove the temporary directory
-        for i in range(frame_count):
-            os.remove(f"annotated_frames/frame_{i}.jpg")
-        os.rmdir("annotated_frames")
-        os.remove(annotated_video_path)
 
 if __name__ == "__main__":
     main()
