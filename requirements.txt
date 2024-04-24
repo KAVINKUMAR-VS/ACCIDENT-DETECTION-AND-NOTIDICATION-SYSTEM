@@ -1,6 +1,6 @@
-streamlit==0.88.0
-opencv-python-headless==4.5.3
-tensorflow==2.6.0
-twilio==7.0.0
-geocoder==1.38.1
-numpy==1.19.5
+streamlit
+opencv-python-headless
+tensorflow
+twilio
+geocoder
+numpy
