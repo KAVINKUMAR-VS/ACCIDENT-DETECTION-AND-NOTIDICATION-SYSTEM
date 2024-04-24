@@ -2,26 +2,44 @@ import streamlit as st
 import cv2
 import numpy as np
 from keras.models import Model
-from keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
+from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
-import requests
+import os
+import base64
+import tempfile
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
 
-    def __init__(self, model_weights_file):
+    def __init__(self, model_json_file, model_weights_file):
         try:
-            input_layer = Input(shape=(250, 250, 3))
-            x = Conv2D(32, (3, 3), activation='relu')(input_layer)
-            x = MaxPooling2D((2, 2))(x)
-            x = Conv2D(64, (3, 3), activation='relu')(x)
-            x = MaxPooling2D((2, 2))(x)
-            x = Flatten()(x)
-            x = Dense(64, activation='relu')(x)
-            output_layer = Dense(2, activation='softmax')(x)
-
-            self.loaded_model = Model(input_layer, output_layer)
+            # Define the model architecture using the functional API
+            input_layer = Input(shape=(250, 250, 3), name='input_layer')
+            
+            x = BatchNormalization(name='batch_normalization')(input_layer)
+            
+            x = Conv2D(32, (3, 3), activation='relu', name='conv2d')(x)
+            x = MaxPooling2D((2, 2), name='max_pooling2d')(x)
+            
+            x = Conv2D(64, (3, 3), activation='relu', name='conv2d_1')(x)
+            x = MaxPooling2D((2, 2), name='max_pooling2d_1')(x)
+            
+            x = Conv2D(128, (3, 3), activation='relu', name='conv2d_2')(x)
+            x = MaxPooling2D((2, 2), name='max_pooling2d_2')(x)
+            
+            x = Conv2D(256, (3, 3), activation='relu', name='conv2d_3')(x)
+            x = MaxPooling2D((2, 2), name='max_pooling2d_3')(x)
+            
+            x = Flatten(name='flatten')(x)
+            
+            x = Dense(512, activation='relu', name='dense')(x)
+            
+            output_layer = Dense(2, activation='softmax', name='dense_1')(x)
+            
+            self.loaded_model = Model(inputs=input_layer, outputs=output_layer)
+            
+            # Load model weights
             self.loaded_model.load_weights(model_weights_file)
         except Exception as e:
             raise RuntimeError(f"Error loading model: {e}")
@@ -35,11 +53,10 @@ class AccidentDetectionModel:
 
 def get_location():
     try:
-        ip_address = requests.get('https://api.ipify.org').text
-        location = geocoder.ip(ip_address)
+        location = geocoder.ip('me')
         return location.latlng[0], location.latlng[1]
     except Exception as e:
-        print(f"Error getting location: {e}")
+        st.error(f"Error getting location: {e}")
         return None
 
 def get_address(latitude, longitude):
@@ -47,7 +64,7 @@ def get_address(latitude, longitude):
         location = geocoder.osm([latitude, longitude], method='reverse')
         return location.address
     except Exception as e:
-        print(f"Error getting address: {e}")
+        st.error(f"Error getting address: {e}")
         return None
 
 def send_sms_twilio():
@@ -58,6 +75,7 @@ def send_sms_twilio():
         to_number = '+916382150416'
 
         client = Client(account_sid, auth_token)
+
         latitude, longitude = get_location()
         address = get_address(latitude, longitude)
 
@@ -69,48 +87,53 @@ def send_sms_twilio():
             to=to_number
         )
 
-        st.write(f"SMS sent: {message.sid}")
-
+        st.success("SMS sent successfully!")
     except Exception as e:
-        st.write(f"Error sending SMS: {e}")
+        st.error(f"Error sending SMS: {e}")
 
 def main():
-    st.title("Accident Detection and Alerting System")
-    
-    model = AccidentDetectionModel('model_weights.h5')
-    font = cv2.FONT_HERSHEY_SIMPLEX
+    st.title("Accident Detection System")
 
-    video_path = st.text_input("Enter video path:", "head_on_collision_101.mp4")
-    video = cv2.VideoCapture(video_path)
+    uploaded_file = st.file_uploader("Upload Video", type=["mp4"])
 
-    if not video.isOpened():
-        st.write(f"Error: Couldn't open the video source. Check the file path: {video_path}")
-        return
+    if uploaded_file is not None:
+        st.video(uploaded_file)
 
-    while True:
-        ret, frame = video.read()
+        # Save the uploaded file as a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file.write(uploaded_file.read())
 
-        if not ret:
-            break
+        # Read the temporary file using OpenCV
+        video = cv2.VideoCapture(temp_file.name)
 
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        roi = cv2.resize(gray_frame, (250, 250))
+        model = AccidentDetectionModel("model.json", "model_weights.h5")
 
-        pred, prob = model.predict_accident(roi[np.newaxis, :, :, :])
-        prob_percentage = round(prob[0][0] * 100, 2)
+        # Initialize SMS sent flag
+        sms_sent = False
 
-        if 93 <= prob_percentage <= 100:
-            cv2.putText(frame, f"Prediction: {pred} - Probability: {prob_percentage}%", (10, 30), font, 0.7, (255, 0, 0), 2)
-            cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
-            cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), font, 1, (255, 0, 0), 2)  
+        while True:
+            ret, frame = video.read()
+            if not ret:
+                break
 
-            # Send SMS
-            send_sms_twilio()  
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            roi = cv2.resize(gray_frame, (250, 250))
 
-            st.image(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), channels="BGR")
+            pred, prob = model.predict_accident(roi[np.newaxis, :, :, :])
+            prob_percentage = round(prob[0][0] * 100, 2)
 
-        if st.button("Stop"):
-            break
+            if 93 <= prob_percentage <= 100:
+                cv2.putText(frame, f"Prediction: {pred} - Probability: {prob_percentage}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+                cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
+                cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
-if __name__ == '__main__':
+                st.image(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), channels="BGR")
+
+        # Release video capture
+        video.release()
+
+        # Close the temporary file
+        temp_file.close()
+
+if __name__ == "__main__":
     main()
