@@ -4,7 +4,8 @@ import numpy as np
 from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
-import geocoder
+import geopy
+import geopy.geocoders
 import tempfile
 
 class AccidentDetectionModel:
@@ -56,7 +57,7 @@ def get_location():
         return location.latitude, location.longitude
     except Exception as e:
         st.error(f"Error getting location: {e}")
-        return None
+        return None, None
 
 def get_address(latitude, longitude):
     try:
@@ -77,6 +78,10 @@ def send_sms_twilio():
         client = Client(account_sid, auth_token)
 
         latitude, longitude = get_location()
+        
+        if latitude is None or longitude is None:
+            return False
+
         address = get_address(latitude, longitude)
 
         message_body = f"ACCIDENT DETECTED at {address} (Latitude: {latitude}, Longitude: {longitude}) please hurry up to this place"
@@ -88,8 +93,10 @@ def send_sms_twilio():
         )
 
         st.success("SMS sent successfully!")
+        return True
     except Exception as e:
         st.error(f"Error sending SMS: {e}")
+        return False
 
 def main():
     st.title("Accident Detection System")
