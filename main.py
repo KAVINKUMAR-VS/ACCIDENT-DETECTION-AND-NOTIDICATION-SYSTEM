@@ -5,6 +5,9 @@ from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
+import os
+import base64
+import tempfile
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
@@ -96,9 +99,12 @@ def main():
     if uploaded_file is not None:
         st.video(uploaded_file)
 
-        # Read the uploaded file using OpenCV
-        video_array = np.frombuffer(uploaded_file.read(), np.uint8)
-        video = cv2.VideoCapture(video_array)
+        # Save the uploaded file as a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file.write(uploaded_file.read())
+
+        # Read the temporary file using OpenCV
+        video = cv2.VideoCapture(temp_file.name)
 
         model = AccidentDetectionModel("model.json", "model_weights.h5")
 
@@ -129,6 +135,9 @@ def main():
 
         # Release video capture
         video.release()
+
+        # Close the temporary file
+        temp_file.close()
 
 if __name__ == "__main__":
     main()
