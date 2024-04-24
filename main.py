@@ -73,7 +73,7 @@ def send_sms_twilio():
         account_sid = 'ACda3432c307b6f6e241eab51d4338ce0e'
         auth_token = '2862f061b43ae94f12fe27306b2d9c3a'
         from_number = '+12164467689'
-        to_number = '+919344039624'
+        to_number = '+916382150416'
 
         client = Client(account_sid, auth_token)
 
