@@ -100,7 +100,11 @@ def main():
 
         # Read the uploaded file using OpenCV
         video_array = np.frombuffer(uploaded_file.read(), np.uint8)
-        video = cv2.VideoCapture(video_array)
+        video_path = "/tmp/uploaded_video.mp4"
+        with open(video_path, 'wb') as f:
+            f.write(video_array)
+
+        video = cv2.VideoCapture(video_path)
 
         model = AccidentDetectionModel("model.json", "model_weights.h5")
 
