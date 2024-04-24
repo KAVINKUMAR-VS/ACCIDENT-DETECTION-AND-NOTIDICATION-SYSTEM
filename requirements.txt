@@ -3,7 +3,5 @@ twilio
 numpy
 keras
 geocoder
-requests
-tempfile
 os
 base64
