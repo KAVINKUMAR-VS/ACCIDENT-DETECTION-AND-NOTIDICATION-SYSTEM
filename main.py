@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import cv2
 import numpy as np
@@ -5,7 +6,9 @@ from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
-import os
+
+# Print current working directory
+print("Current directory:", os.getcwd())
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
