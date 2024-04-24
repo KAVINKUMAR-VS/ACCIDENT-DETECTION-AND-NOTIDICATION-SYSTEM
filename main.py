@@ -5,8 +5,6 @@ from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
-import os
-import base64
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
@@ -100,18 +98,14 @@ def main():
 
         # Read the uploaded file using OpenCV
         video_array = np.frombuffer(uploaded_file.read(), np.uint8)
-        video_path = "/tmp/uploaded_video.mp4"
-        with open(video_path, 'wb') as f:
-            f.write(video_array)
-
-        video = cv2.VideoCapture(video_path)
+        video = cv2.VideoCapture(video_array)
 
         model = AccidentDetectionModel("model.json", "model_weights.h5")
 
         # Initialize SMS sent flag
         sms_sent = False
         
-        frame_count = 0
+        highest_probability = 0.0
 
         while True:
             ret, frame = video.read()
@@ -124,15 +118,14 @@ def main():
             pred, prob = model.predict_accident(roi[np.newaxis, :, :])
             prob_percentage = round(prob[0][0] * 100, 2)
 
-            # Display probability on the video frame
-            st.write(f"Frame {frame_count}: Prediction: {pred} - Probability: {prob_percentage}%")
+            if pred == "Accident" and prob_percentage > highest_probability:
+                highest_probability = prob_percentage
 
-            if pred == "Accident" and not sms_sent:
-                send_sms_twilio()
-                sms_sent = True
-                st.warning(f"Accident detected with {prob_percentage}% probability!")
+            st.write(f"Frame: Prediction: {pred} - Probability: {prob_percentage}%")
 
-            frame_count += 1
+        if highest_probability > 0:
+            st.warning(f"Accident detected with {highest_probability}% probability!")
+            send_sms_twilio()
 
         # Release video capture
         video.release()
