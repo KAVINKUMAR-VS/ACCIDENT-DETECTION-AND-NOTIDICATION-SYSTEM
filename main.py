@@ -5,8 +5,6 @@ from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
-import os
-import base64
 
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
@@ -96,15 +94,14 @@ def main():
     uploaded_file = st.file_uploader("Upload Video", type=["mp4"])
 
     if uploaded_file is not None:
-        st.video(uploaded_file)
-
-        # Read the uploaded file using OpenCV
-        video_array = np.frombuffer(uploaded_file.read(), np.uint8)
-        video = cv2.VideoCapture(video_array)
+        video_bytes = uploaded_file.read()
+        np_video = np.frombuffer(video_bytes, np.uint8)
+        
+        video = cv2.VideoCapture()
+        video.open("uploaded_video.mp4", cv2.CAP_ANY)
 
         model = AccidentDetectionModel("model.json", "model_weights.h5")
 
-        # Initialize SMS sent flag
         sms_sent = False
         
         frame_count = 0
@@ -120,7 +117,6 @@ def main():
             pred, prob = model.predict_accident(roi[np.newaxis, :, :])
             prob_percentage = round(prob[0][0] * 100, 2)
 
-            # Display probability on the video frame
             st.write(f"Frame {frame_count}: Prediction: {pred} - Probability: {prob_percentage}%")
 
             if pred == "Accident" and not sms_sent:
@@ -130,7 +126,6 @@ def main():
 
             frame_count += 1
 
-        # Release video capture
         video.release()
 
 if __name__ == "__main__":
