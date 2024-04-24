@@ -128,9 +128,9 @@ def main():
                 cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
                 st.image(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), channels="BGR")
-                if send_sms_twilio():
-                    sms_sent = True
-                    st.write('SMS sent successfully !!!', unsafe_allow_html=True)
+            if send_sms_twilio():
+                sms_sent = True
+                st.write('SMS sent successfully !!!', unsafe_allow_html=True)
 
         # Release video capture
         video.release()
