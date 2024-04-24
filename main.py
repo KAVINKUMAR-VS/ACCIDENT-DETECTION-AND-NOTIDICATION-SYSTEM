@@ -88,8 +88,10 @@ def send_sms_twilio():
         )
 
         st.success("SMS sent successfully!")
+        return True
     except Exception as e:
         st.error(f"Error sending SMS: {e}")
+        return False
 
 def main():
     st.title("Accident Detection System")
@@ -122,12 +124,16 @@ def main():
             pred, prob = model.predict_accident(roi[np.newaxis, :, :, :])
             prob_percentage = round(prob[0][0] * 100, 2)
 
-            if 93 <= prob_percentage <= 100:
+            if 96 <= prob_percentage <= 100 and not sms_sent:
                 cv2.putText(frame, f"Prediction: {pred} - Probability: {prob_percentage}%", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
                 cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
                 cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
 
                 st.image(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), channels="BGR")
+
+                # Send SMS
+                if send_sms_twilio():
+                    sms_sent = True
 
         # Release video capture
         video.release()
