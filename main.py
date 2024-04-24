@@ -51,15 +51,17 @@ class AccidentDetectionModel:
 
 def get_location():
     try:
-        location = geocoder.ip('me')
-        return location.latlng[0], location.latlng[1]
+        locator = geopy.geocoders.Nominatim(user_agent="AccidentDetectionApp")
+        location = locator.geocode("Chennai")
+        return location.latitude, location.longitude
     except Exception as e:
         st.error(f"Error getting location: {e}")
         return None
 
 def get_address(latitude, longitude):
     try:
-        location = geocoder.osm([latitude, longitude], method='reverse')
+        locator = geopy.geocoders.Nominatim(user_agent="AccidentDetectionApp")
+        location = locator.reverse((latitude, longitude))
         return location.address
     except Exception as e:
         st.error(f"Error getting address: {e}")
