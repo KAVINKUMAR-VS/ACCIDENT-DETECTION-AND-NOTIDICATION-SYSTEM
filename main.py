@@ -8,6 +8,27 @@ import geopy
 import geopy.geocoders
 import tempfile
 
+# Add custom CSS styles
+st.markdown("""
+    <style>
+        body {
+            color: #333;
+            background-color: #f4f4f4;
+        }
+        .st-bq {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .st-cb {
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
 
