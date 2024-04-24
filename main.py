@@ -5,8 +5,6 @@ from keras.models import Model
 from keras.layers import Input, BatchNormalization, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
-import requests
-import tempfile
 import os
 import base64
 
@@ -54,8 +52,7 @@ class AccidentDetectionModel:
 
 def get_location():
     try:
-        ip_address = requests.get('https://api.ipify.org').text
-        location = geocoder.ip(ip_address)
+        location = geocoder.ip('me')
         return location.latlng[0], location.latlng[1]
     except Exception as e:
         st.error(f"Error getting location: {e}")
@@ -101,13 +98,10 @@ def main():
     if uploaded_file is not None:
         st.video(uploaded_file)
 
-        # Save the uploaded file to a temporary location
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
-            temp_video.write(uploaded_file.read())
-            temp_video_path = temp_video.name
+        # Read the uploaded file using OpenCV
+        video_array = np.frombuffer(uploaded_file.read(), np.uint8)
+        video = cv2.VideoCapture(video_array)
 
-        # Process the video file
-        video = cv2.VideoCapture(temp_video_path)
         model = AccidentDetectionModel("model.json", "model_weights.h5")
 
         # Initialize SMS sent flag
@@ -165,9 +159,7 @@ def main():
         for i in range(frame_count):
             os.remove(f"annotated_frames/frame_{i}.jpg")
         os.rmdir("annotated_frames")
-        os.remove(temp_video_path)
         os.remove(annotated_video_path)
 
 if __name__ == "__main__":
     main()
-
