@@ -70,10 +70,10 @@ def get_address(latitude, longitude):
 
 def send_sms_twilio():
     try:
-        account_sid = 'AC73e32b2265b51c773bd5c1bc945f998b'
-        auth_token = 'd44aabf880d474d2082b420dca519ae0'
-        from_number = '+12513134656'
-        to_number = '+916382150416'
+        account_sid = 'ACda3432c307b6f6e241eab51d4338ce0e'
+        auth_token = '2862f061b43ae94f12fe27306b2d9c3a'
+        from_number = '+12164467689'
+        to_number = '+919344039624'
 
         client = Client(account_sid, auth_token)
 
