@@ -8,27 +8,6 @@ import geopy
 import geopy.geocoders
 import tempfile
 
-# Add custom CSS styles
-st.markdown("""
-    <style>
-        body {
-            color: #333;
-            background-color: #f4f4f4;
-        }
-        .st-bq {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .st-cb {
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
 
@@ -91,9 +70,9 @@ def get_address(latitude, longitude):
 
 def send_sms_twilio():
     try:
-        account_sid = 'ACda3432c307b6f6e241eab51d4338ce0e'
-        auth_token = '2862f061b43ae94f12fe27306b2d9c3a'
-        from_number = '+12164467689'
+        account_sid = 'AC73e32b2265b51c773bd5c1bc945f998b'
+        auth_token = 'd44aabf880d474d2082b420dca519ae0'
+        from_number = '+12513134656'
         to_number = '+916382150416'
 
         client = Client(account_sid, auth_token)
@@ -169,3 +148,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
