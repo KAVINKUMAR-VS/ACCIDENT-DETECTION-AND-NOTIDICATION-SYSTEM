@@ -1,7 +1,8 @@
 import streamlit as st
 import cv2
-from keras.models import model_from_json
 import numpy as np
+from keras.models import Model
+from keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
 from twilio.rest import Client
 import geocoder
 import requests
@@ -9,12 +10,18 @@ import requests
 class AccidentDetectionModel:
     class_nums = ['Accident', 'No Accident']
 
-    def __init__(self, model_json_file, model_weights_file):
+    def __init__(self, model_weights_file):
         try:
-            with open(model_json_file, 'r') as json_file:
-                loaded_model_json = json_file.read()
-                self.loaded_model = model_from_json(loaded_model_json)
+            input_layer = Input(shape=(250, 250, 3))
+            x = Conv2D(32, (3, 3), activation='relu')(input_layer)
+            x = MaxPooling2D((2, 2))(x)
+            x = Conv2D(64, (3, 3), activation='relu')(x)
+            x = MaxPooling2D((2, 2))(x)
+            x = Flatten()(x)
+            x = Dense(64, activation='relu')(x)
+            output_layer = Dense(2, activation='softmax')(x)
 
+            self.loaded_model = Model(input_layer, output_layer)
             self.loaded_model.load_weights(model_weights_file)
         except Exception as e:
             raise RuntimeError(f"Error loading model: {e}")
@@ -70,7 +77,7 @@ def send_sms_twilio():
 def main():
     st.title("Accident Detection and Alerting System")
     
-    model = AccidentDetectionModel('model.json', 'model_weights.h5')
+    model = AccidentDetectionModel('model_weights.h5')
     font = cv2.FONT_HERSHEY_SIMPLEX
 
     video_path = st.text_input("Enter video path:", "head_on_collision_101.mp4")
@@ -89,7 +96,7 @@ def main():
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         roi = cv2.resize(gray_frame, (250, 250))
 
-        pred, prob = model.predict_accident(roi[np.newaxis, :, :])
+        pred, prob = model.predict_accident(roi[np.newaxis, :, :, :])
         prob_percentage = round(prob[0][0] * 100, 2)
 
         if 93 <= prob_percentage <= 100:
@@ -97,6 +104,7 @@ def main():
             cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
             cv2.putText(frame, f"{pred} {prob_percentage}%", (20, 30), font, 1, (255, 0, 0), 2)  
 
+            # Send SMS
             send_sms_twilio()  
 
             st.image(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), channels="BGR")
