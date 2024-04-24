@@ -1,7 +1,7 @@
 opencv-python
 twilio
 numpy
-keras
+tensorflow
 geocoder
-os
-base64
+os-sys
+pybase64
