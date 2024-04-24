@@ -1,7 +1,6 @@
-opencv-python
-twilio
-numpy
+streamlit
+opencv-python-headless
 tensorflow
+twilio
 geocoder
-os-sys
-pybase64
+base64
